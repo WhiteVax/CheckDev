@@ -8,6 +8,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import ru.job4j.site.dto.CategoryDTO;
+import ru.job4j.site.dto.ProfileDTO;
 import ru.job4j.site.dto.VacancyStatisticWithDates;
 import ru.job4j.site.service.*;
 import ru.job4j.site.util.RequestResponseTools;
@@ -16,6 +17,10 @@ import javax.servlet.http.HttpServletRequest;
 
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static ru.job4j.site.util.RequestResponseTools.getToken;
 
@@ -29,6 +34,8 @@ public class IndexController {
     private final NotificationService notifications;
     private final TopicsService topicsService;
     private final VacancyStatisticService vacancyStatisticService;
+    private final ProfilesService profilesService;
+
 
     @GetMapping({"/", "index"})
     public String getIndexPage(Model model, HttpServletRequest req) throws JsonProcessingException {
@@ -74,9 +81,14 @@ public class IndexController {
         newInterviewsDTO.forEach(i -> {
             i.setTitle(StringEscapeUtils.unescapeHtml4(i.getTitle()));
             i.setAdditional(StringEscapeUtils.unescapeHtml4(i.getAdditional()));
-        });
-        interviewsService.setCountWishers(newInterviewsDTO, getToken(req));
-
+        });  interviewsService.setCountWishers(newInterviewsDTO, getToken(req));
+        Map<Integer, ProfileDTO> authors = newInterviewsDTO.stream()
+                .map(interview -> interview.getSubmitterId())
+                .distinct()
+                .map(profilesService::getProfileById)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(Collectors.toMap(ProfileDTO::getId, Function.identity()));
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
         var vacancyStatisticDates = vacancyStatistic.getDates();
         var vacancyStatisticLastUpdateDate =
@@ -87,6 +99,7 @@ public class IndexController {
         model.addAttribute("topicsLiteMap", topicsLiteMap);
         model.addAttribute("new_interviews", newInterviewsDTO);
         model.addAttribute("authService", authService);
+        model.addAttribute("authors", authors);
         model.addAttribute("vacancyStatistic", vacancyStatistic.getStatisticList());
         model.addAttribute("vacancyStatisticLastUpdateDate", vacancyStatisticLastUpdateDate);
         model.addAttribute("vacancyStatisticNextUpdateDate", vacancyStatisticNextUpdateDate);

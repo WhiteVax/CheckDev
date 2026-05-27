@@ -36,18 +36,18 @@
             var itemId = element.getAttribute('data-item-id');
             $('#delete_dialog').modal('show');
             $('#delete_dialog').attr('data-item-id', itemId);
-            $('#confirmDeleteButton').on('click', function() {
+            $('#confirmDeleteButton').on('click', function () {
                 deleteItem(itemId);
             });
         }
 
         function deleteItem(itemId) {
             $.ajax({
-                 type: 'DELETE',
-                 url: '/statistic/delete/' + itemId,
-                 success: function () {
-                        location.reload();
-                     }
+                type: 'DELETE',
+                url: '/statistic/delete/' + itemId,
+                success: function () {
+                    location.reload();
+                }
             });
         }
     </script>
@@ -183,7 +183,13 @@
                                         <i class="far fa-clock pl-3"></i>
                                         <span th:text="${#strings.substring(interview.createDate, 0, 10)}"></span>
                                         <i class="far fa-user pl-3"></i>
-                                        <span th:text="${authService.findById(interview.submitterId).username}"></span>
+
+                                        <a class="text-decoration-none text-muted"
+                                           th:if="${authors.containsKey(interview.submitterId)}"
+                                           th:href="@{|/profiles/${authors.get(interview.submitterId).id}|}">
+                                            <span th:text="${authors.get(interview.submitterId).username}"></span>
+                                        </a>
+
                                         <i class="fa fa-comments pl-3" aria-hidden="true"></i>
                                         <span>Откликов:</span>
                                         <span th:text="${interview.countWishers}"></span>
