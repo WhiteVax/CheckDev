@@ -9,10 +9,14 @@ import org.springframework.stereotype.Service;
 import ru.job4j.site.domain.Category;
 import ru.job4j.site.dto.CategoryDTO;
 import ru.job4j.site.dto.TopicIdNameDTO;
+import ru.job4j.site.dto.TopicLiteDTO;
 import ru.job4j.site.util.RestAuthCall;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -50,9 +54,9 @@ public class CategoriesService {
         var out = new RestAuthCall(String
                 .format("%s%s", uriProvider.getUri(SERVICE_ID), DIRECT_SINGLE))
                 .post(
-                token,
-                mapper.writeValueAsString(category)
-        );
+                        token,
+                        mapper.writeValueAsString(category)
+                );
         return mapper.readValue(out, CategoryDTO.class);
     }
 
@@ -60,30 +64,40 @@ public class CategoriesService {
         var mapper = new ObjectMapper();
         new RestAuthCall(String.format("%s%s", uriProvider.getUri(SERVICE_ID), DIRECT_SINGLE))
                 .put(
-                token,
-                mapper.writeValueAsString(category)
-        );
+                        token,
+                        mapper.writeValueAsString(category)
+                );
     }
 
     public List<CategoryDTO> getAllWithTopics() throws JsonProcessingException {
-        var categoriesDTO = getAll();
-        for (var categoryDTO : categoriesDTO) {
-            var listTopicId = getAllWithTopicsCount(categoryDTO);
-            var count = countInterview(listTopicId);
-            categoryDTO.setCountInterview(count);
+        return setInterviewCount(getAll());
+    }
+
+    private List<CategoryDTO> setInterviewCount(List<CategoryDTO> categoriesDTO) {
+        Map<Integer, Long> map = getInterviewCountById();
+        for (CategoryDTO category : categoriesDTO) {
+            category.setCountInterview(map.getOrDefault(category.getId(), 0L));
         }
         return categoriesDTO;
     }
 
-    public List<CategoryDTO> getMostPopular() throws JsonProcessingException {
-        var categoriesDTO = getPopularFromDesc();
-        for (var categoryDTO : categoriesDTO) {
-            var listTopicId = getAllWithTopicsCount(categoryDTO);
-            var count = countInterview(listTopicId);
-            categoryDTO.setCountInterview(count);
-        }
-        return categoriesDTO;
+    private Map<Integer, Long> getInterviewCountById() {
+        var topicIdToCategoryId = topicsService.getAllTopicLiteDTO().stream()
+                .collect(Collectors.toMap(
+                        TopicLiteDTO::getId,
+                        TopicLiteDTO::getCategoryId,
+                        (existing, ignored) -> existing
+                ));
+        return interviewsService.getNewInterviews().stream()
+                .map(interview -> topicIdToCategoryId.get(interview.getTopicId()))
+                .filter(Objects::nonNull)
+                .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
     }
+
+    public List<CategoryDTO> getMostPopular() throws JsonProcessingException {
+        return setInterviewCount(getPopularFromDesc());
+    }
+
 
     public String getNameById(List<CategoryDTO> list, int id) {
         String result = "";
