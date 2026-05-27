@@ -1,0 +1,1 @@
+ALTER TABLE IF EXISTS interview ADD COLUMN IF NOT EXISTS cancel_by text;

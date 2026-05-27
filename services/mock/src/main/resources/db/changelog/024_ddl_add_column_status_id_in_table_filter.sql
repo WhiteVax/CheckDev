@@ -1,0 +1,2 @@
+ALTER TABLE IF EXISTS cd_filter
+    ADD COLUMN IF NOT EXISTS status INT;
