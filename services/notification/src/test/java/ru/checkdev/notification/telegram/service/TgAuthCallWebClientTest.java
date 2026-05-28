@@ -10,9 +10,11 @@ import reactor.core.publisher.Mono;
 import ru.checkdev.notification.domain.Profile;
 
 import java.util.Calendar;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
@@ -94,5 +96,46 @@ class TgAuthCallWebClientTest {
         Profile actual = (Profile) objectMono.block();
 
         assertThat(actual).isEqualTo(profile);
+    }
+
+    @Test
+    void whenAuthGetFailsTemporarilyThenRetryReturnsProfile() {
+        var attempts = new AtomicInteger();
+        Calendar created = new Calendar.Builder()
+                .set(Calendar.DAY_OF_MONTH, 28)
+                .set(Calendar.MONTH, Calendar.MAY)
+                .set(Calendar.YEAR, 2026)
+                .build();
+
+        Profile profile = new Profile(
+                1,
+                "username",
+                "mail@test.com",
+                "password",
+                true,
+                created
+        );
+        WebClient webClient = mock(WebClient.class);
+        WebClient.RequestHeadersUriSpec uriSpec =
+                mock(WebClient.RequestHeadersUriSpec.class);
+        WebClient.RequestHeadersSpec headersSpec =
+                mock(WebClient.RequestHeadersSpec.class);
+        WebClient.ResponseSpec responseSpec =
+                mock(WebClient.ResponseSpec.class);
+        when(webClient.get()).thenReturn((WebClient.RequestHeadersUriSpec) uriSpec);
+        when(uriSpec.uri("/profiles/tg/1")).thenReturn(headersSpec);
+        when(headersSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.bodyToMono(Profile.class))
+                .thenAnswer(invocation -> {
+                    if (attempts.incrementAndGet() < 3) {
+                        return Mono.error(new IllegalStateException("temporary error"));
+                    }
+                    return Mono.just(profile);
+                });
+        var client = new TgAuthCallWebClient(webClient, 3, 0);
+        Profile result = client.doGet("/profiles/tg/1").block();
+        assertThat(result).isEqualTo(profile);
+        assertThat(attempts.get()).isEqualTo(3);
+
     }
 }
