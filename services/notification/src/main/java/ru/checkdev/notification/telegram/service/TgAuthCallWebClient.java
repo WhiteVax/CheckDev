@@ -1,12 +1,11 @@
 package ru.checkdev.notification.telegram.service;
 
-import lombok.AllArgsConstructor;
-import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
+import ru.checkdev.notification.config.CircuitBreaker;
 import ru.checkdev.notification.domain.Profile;
 
 /**
@@ -15,56 +14,85 @@ import ru.checkdev.notification.domain.Profile;
  * @author Dmitry Stepanov, user Dmitry
  * @since 12.09.2023
  */
-@org.springframework.context.annotation.Profile("default")
-@Service
-@NoArgsConstructor
-@AllArgsConstructor
 @Slf4j
+@Service
+@org.springframework.context.annotation.Profile("default")
 public class TgAuthCallWebClient implements TgCall {
+
     @Value("${server.auth}")
     private String urlServiceAuth;
 
-    /**
-     * Метод get
-     *
-     * @param url URL http
-     * @return Mono<Person>
-     */
-    @Override
-    public Mono<Profile> doGet(String url) {
-        return WebClient.create(urlServiceAuth)
-                .get()
-                .uri(url)
-                .retrieve()
-                .bodyToMono(Profile.class)
-                .doOnError(err -> log.error("API not found: {}", err.getMessage()));
+    private final WebClient webClient;
+    private final CircuitBreaker circuitBreaker;
+
+    public TgAuthCallWebClient() {
+        this.webClient = null;
+        this.circuitBreaker = new CircuitBreaker(3);
     }
 
-    /**
-     * Метод POST
-     *
-     * @param url     URL http
-     * @param profile Body PersonDTO.class
-     * @return Mono<Person>
-     */
+    public TgAuthCallWebClient(WebClient webClient, int retries, long delay) {
+        this.webClient = webClient;
+        this.circuitBreaker = new CircuitBreaker(retries);
+    }
+
+    @Override
+    public Mono<Profile> doGet(String url) {
+        return Mono.fromCallable(() ->
+                circuitBreaker.exec(() ->
+                                webClient()
+                                        .get()
+                                        .uri(url)
+                                        .retrieve()
+                                        .bodyToMono(Profile.class)
+                                        .doOnError(e ->
+                                                log.error("API GET error: {}", e.getMessage())
+                                        )
+                                        .block(),
+                        new Profile()
+                )
+        );
+    }
+
     @Override
     public Mono<Object> doPost(String url, Profile profile) {
-        return WebClient.create(urlServiceAuth)
-                .post()
-                .uri(url)
-                .bodyValue(profile)
-                .retrieve()
-                .bodyToMono(Object.class)
-                .doOnError(err -> log.error("API not found: {}", err.getMessage()));
+        return Mono.fromCallable(() ->
+                circuitBreaker.exec(() ->
+                                webClient()
+                                        .post()
+                                        .uri(url)
+                                        .bodyValue(profile)
+                                        .retrieve()
+                                        .bodyToMono(Object.class)
+                                        .doOnError(e ->
+                                                log.error("API POST error: {}", e.getMessage())
+                                        )
+                                        .block(),
+                        new Object()
+                )
+        );
     }
 
     @Override
     public Mono<Object> doPost(String url) {
-        return WebClient.create(urlServiceAuth)
-                .post()
-                .uri(url)
-                .retrieve()
-                .bodyToMono(Object.class)
-                .doOnError(err -> log.error("API not found: {}", err.getMessage()));
+        return Mono.fromCallable(() ->
+                circuitBreaker.exec(() ->
+                                webClient()
+                                        .post()
+                                        .uri(url)
+                                        .retrieve()
+                                        .bodyToMono(Object.class)
+                                        .doOnError(e ->
+                                                log.error("API POST error: {}", e.getMessage())
+                                        )
+                                        .block(),
+                        new Object()
+                )
+        );
+    }
+
+    private WebClient webClient() {
+        return webClient != null
+                ? webClient
+                : WebClient.create(urlServiceAuth);
     }
 }
