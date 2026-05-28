@@ -72,7 +72,11 @@ public class TgConfigFake {
                         new BindAskPasswordAction(),
                         new BindPutPasswordAction(sessionTg),
                         new BindAccountAction(sessionTg, tgCall, userTelegramService)),
-                "/unbind", List.of(new UnbindAccountAction(userTelegramService))
+                "/unbind", List.of(new UnbindAskEmailAction(userTelegramService),
+                        new BindPutEmailAction(sessionTg),
+                        new BindAskPasswordAction(),
+                        new BindPutPasswordAction(sessionTg),
+                        new UnbindAccountAction(sessionTg, tgCall, userTelegramService))
         );
         TgBootFake menu = new TgBootFake(actionMap, username, token);
         return menu;

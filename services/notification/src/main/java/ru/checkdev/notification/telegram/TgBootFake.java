@@ -11,6 +11,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static java.util.Collections.emptyIterator;
+
 /**
  * Класс TgBootFake для имитации связи с телеграмм ботом,
  * используется для профиля develop, без использования Telegram API
@@ -49,7 +51,7 @@ public class TgBootFake implements Bot {
         var chatId = update.getMessage().getChatId().toString();
         if (actions.containsKey(key)) {
             bindingBy.put(chatId, actions.get(key).iterator());
-        } else if (!actions.containsKey(key) && !bindingBy.get(chatId).hasNext()) {
+        } else if (!bindingBy.getOrDefault(chatId, emptyIterator()).hasNext()) {
             var msg = new UnKnownRequestAction().handle(update);
             send(msg.get());
             return;

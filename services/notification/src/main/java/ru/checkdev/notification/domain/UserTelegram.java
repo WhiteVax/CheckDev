@@ -1,11 +1,11 @@
 package ru.checkdev.notification.domain;
 
-import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
+import javax.persistence.*;
 
 @Data
 @NoArgsConstructor
@@ -15,6 +15,7 @@ import lombok.NoArgsConstructor;
 public class UserTelegram implements Base {
     @EqualsAndHashCode.Include
     @Id
+    @jakarta.persistence.Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
     @Column(name = "user_id", nullable = false, unique = true)
@@ -22,5 +23,4 @@ public class UserTelegram implements Base {
     @Column(name = "chat_id", nullable = false, unique = true)
     private long chatId;
     private boolean notifiable;
-
 }
