@@ -13,6 +13,7 @@ import java.util.Calendar;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -94,5 +95,38 @@ class TgAuthCallWebClientTest {
         Profile actual = (Profile) objectMono.block();
 
         assertThat(actual).isEqualTo(profile);
+    }
+
+    @Test
+    void whenFallbackGetThenReturnEmptyMono() {
+        TgAuthCallWebClient service = new TgAuthCallWebClient();
+        Profile result = service.fallbackGet(
+                "/test",
+                new RuntimeException("Service unavailable")
+        ).block();
+        assertThat(result).isNull();
+    }
+
+    @Test
+    void whenFallbackPostThenReturnEmptyMono() {
+        TgAuthCallWebClient service = new TgAuthCallWebClient();
+        Profile profile = new Profile();
+        profile.setUsername("test");
+        Object result = service.fallbackPost(
+                "/test",
+                profile,
+                new RuntimeException("Service unavailable")
+        ).block();
+        assertThat(result).isNull();
+    }
+
+    @Test
+    void whenFallbackPostUrlThenReturnEmptyMono() {
+        TgAuthCallWebClient service = new TgAuthCallWebClient();
+        Object result = service.fallbackPostUrl(
+                "/test",
+                new RuntimeException("Service unavailable")
+        ).block();
+        assertThat(result).isNull();
     }
 }
