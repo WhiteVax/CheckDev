@@ -204,3 +204,43 @@ Smoke-тесты:
 - Notification сервис - http://localhost:9920/swagger-ui/index.html
 
 ___
+
+#### Сборка и запуск
+
+Для сборки и запуска всех контейнеров используется Docker Compose. Основной файл управления всеми микросервисами — `docker-compose.yml`.
+
+<details>
+<summary><b>🐳 Docker Compose Setup</b></summary>
+
+### Сборка и запуск
+
+```bash
+docker compose up --build -d
+```
+
+### Проверка запущенных контейнеров
+
+```bash
+docker ps
+```
+
+### Просмотр логов
+
+```bash
+docker compose logs -f
+```
+
+### Остановка всех контейнеров
+
+```bash
+docker compose down
+```
+
+### Полное удаление контейнеров-образов вместе с данными (volumes)
+
+```bash
+docker compose down -v
+docker image prune -a
+```
+
+</details>
