@@ -1,0 +1,238 @@
+services:
+  postgres-auth:
+    image: postgres:17
+    container_name: postgres-auth
+    environment:
+      POSTGRES_DB: cd_auth
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres-auth-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d cd_auth"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - checkdev-network
+
+  postgres-desc:
+    image: postgres:17
+    container_name: postgres-desc
+    environment:
+      POSTGRES_DB: cd_desc
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres-desc-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d cd_desc"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - checkdev-network
+
+  postgres-generator:
+    image: postgres:17
+    container_name: postgres-generator
+    environment:
+      POSTGRES_DB: cd_generator
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres-generator-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d cd_generator"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - checkdev-network
+
+  postgres-mock:
+    image: postgres:17
+    container_name: postgres-mock
+    environment:
+      POSTGRES_DB: mock
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres-mock-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d mock"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - checkdev-network
+
+  postgres-notification:
+    image: postgres:17
+    container_name: postgres-notification
+    environment:
+      POSTGRES_DB: cd_notification
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres-notification-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d cd_notification"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - checkdev-network
+
+  eureka:
+    build:
+      context: ./services/eureka
+    container_name: eureka
+    ports:
+      - "9009:9009"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:9009/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    restart: always
+    networks:
+      - checkdev-network
+
+  auth:
+    build:
+      context: ./services/auth
+    container_name: auth
+    depends_on:
+      eureka:
+        condition: service_healthy
+      postgres-auth:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-auth:5432/cd_auth
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: password
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:9009/eureka
+      SPRING_PROFILES_ACTIVE: docker
+    ports:
+      - "9900:9900"
+    networks:
+      - checkdev-network
+
+  desc:
+    build:
+      context: ./services/desc
+    container_name: desc
+    depends_on:
+      eureka:
+        condition: service_healthy
+      postgres-desc:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-desc:5432/cd_desc
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: password
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:9009/eureka
+      SPRING_PROFILES_ACTIVE: docker
+    ports:
+      - "9902:9902"
+    networks:
+      - checkdev-network
+
+  generator:
+    build:
+      context: ./services/generator
+    container_name: generator
+    depends_on:
+      eureka:
+        condition: service_healthy
+      postgres-generator:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-generator:5432/cd_generator
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: password
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:9009/eureka
+      SPRING_PROFILES_ACTIVE: docker
+    ports:
+      - "9903:9903"
+    networks:
+      - checkdev-network
+
+  mock:
+    build:
+      context: ./services/mock
+    container_name: mock
+    depends_on:
+      eureka:
+        condition: service_healthy
+      postgres-mock:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-mock:5432/mock
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: password
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:9009/eureka
+      SPRING_PROFILES_ACTIVE: docker
+    ports:
+      - "9912:9912"
+    networks:
+      - checkdev-network
+
+  site:
+    build:
+      context: ./services/site
+    container_name: site
+    depends_on:
+      eureka:
+        condition: service_healthy
+      auth:
+        condition: service_started
+      desc:
+        condition: service_started
+      generator:
+        condition: service_started
+      mock:
+        condition: service_started
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:9009/eureka
+      SERVICE_URLSITE: http://site:8000/
+      SPRING_PROFILES_ACTIVE: docker
+    ports:
+      - "8000:8000"
+    networks:
+      - checkdev-network
+
+  notification:
+    build:
+      context: ./services/notification
+    container_name: notification
+    depends_on:
+      eureka:
+        condition: service_healthy
+      postgres-notification:
+        condition: service_healthy
+      site:
+        condition: service_started
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-notification:5432/cd_notification
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: password
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:9009/eureka
+      SPRING_PROFILES_ACTIVE: docker
+    ports:
+      - "9920:9920"
+    networks:
+      - checkdev-network
+
+networks:
+  checkdev-network:
+    driver: bridge
+
+volumes:
+  postgres-auth-data:
+  postgres-desc-data:
+  postgres-generator-data:
+  postgres-mock-data:
+  postgres-notification-data:
